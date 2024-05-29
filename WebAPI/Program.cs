@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Repositories.Models;
+using WebAPI.Helper.JwtManager;
 namespace WebAPI
 {
     public class Program
@@ -14,6 +15,8 @@ namespace WebAPI
 
             builder.Services.AddDbContext<DentalClinicPlatformContext>(config => config.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
           
+            builder.Services.AddSingleton<IJwtTokenManager, JwtTokenManager>();
+
             var app = builder.Build();
 
             if (app.Environment.IsDevelopment())
