@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Repositories.Models;
@@ -9,6 +10,26 @@ namespace WebAPI.Helper.AuthorizationPolicy
     [AttributeUsage(AttributeTargets.Method)]
     public class JwtTokenAuthorization : Attribute, IAuthorizationFilter
     {
+        private readonly string[] allowedRoles;
+
+        public JwtTokenAuthorization()
+        {
+            allowedRoles = [];
+        }
+
+        public JwtTokenAuthorization(string? Roles)
+        {
+            if (Roles == null)
+            {
+                allowedRoles = [];
+            }
+            else
+            {
+                allowedRoles = Roles.Split(",");
+            }
+            
+        }
+
         public void OnAuthorization(AuthorizationFilterContext context)
         {
 
@@ -20,16 +41,32 @@ namespace WebAPI.Helper.AuthorizationPolicy
                 return;
             }
 
-            object? userInfo = context.HttpContext.Items["UserInfo"];
+            var requestedFeature = context.HttpContext.RequestServices.GetService<IJwtTokenManager>();
 
-            if (userInfo == null)
+            //object? userInfo = context.HttpContext.Items["UserInfo"];
+
+            var token = context.HttpContext.Request.Headers.Authorization.ToString();
+
+            if (token == null)
             {
-                context.Result = new JsonResult(new {messsage = "Unauthorized", time = DateTime.UtcNow }) 
+                context.Result = new JsonResult(new {messsage = "Unauthorized! User has not login yet.", time = DateTime.UtcNow }) 
                 { 
                     StatusCode = StatusCodes.Status401Unauthorized,  
                     ContentType = "application/json",
                 };
                 return;
+            }
+            else
+            {
+                if (requestedFeature!.ValidateAccessToken(token.Split(" ").Last(), allowedRoles) == null)
+                {
+                    context.Result = new JsonResult(new { messsage = "Unauthorized! Missing permissions", time = DateTime.UtcNow })
+                    {
+                        StatusCode = StatusCodes.Status401Unauthorized,
+                        ContentType = "application/json",
+                    };
+                    return;
+                }
             }
         }
     }

@@ -18,6 +18,7 @@ namespace WebAPI.Middlewares
             // using the Token Manager Service from the Service Collection to validate the token.
             var User = tokenManager.ValidateAccessToken(token);
 
+            // Set the user item for furthur usage down the api endpoint.
             if (User != null)
             {
                 context.Items["UserInfo"] = User;
