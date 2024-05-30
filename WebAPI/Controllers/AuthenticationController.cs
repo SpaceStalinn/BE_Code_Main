@@ -2,10 +2,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Repositories;
 using Repositories.Models;
+using System.Net;
 using System.Text.Json.Nodes;
+using WebAPI.Helper.AuthorizationPolicy;
 using WebAPI.Models;
 using WebAPI.Services.JwtManager;
-using WebAPI.Helper.AuthorizationPolicy;
 
 namespace WebAPI.Controllers
 {
@@ -29,6 +30,7 @@ namespace WebAPI.Controllers
         [AllowAnonymous]
         public IActionResult LogUserIn([FromBody] AuthModel requestObject)
         {
+            Console.WriteLine(requestObject);
             JsonObject responseJson = new JsonObject();
 
             User? user = unitOfWork.Authenticate(requestObject.username, requestObject.password);
@@ -43,7 +45,7 @@ namespace WebAPI.Controllers
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex);
-                    return this.Problem(statusCode: 500, title: "Can't generate new token!", detail:ex.Message, instance: ex.Source);
+                    return this.Problem(statusCode: 500, title: "Can't generate new token!", detail: ex.Message, instance: ex.Source);
                 }
 
                 return Ok(responseJson);
@@ -61,31 +63,63 @@ namespace WebAPI.Controllers
         [AllowAnonymous]
         public IActionResult RegisterCustomer([FromBody] RegisterModel requestObject)
         {
-            User newUser = new User()
-            {
-                Username = requestObject.username,
-                Password = requestObject.password,
-                Email = requestObject.email,
-                Role = 4,
-                Status = 3
-            };
+            JsonResult response;
 
-            JsonObject returnObject = new JsonObject();
+            // Check for email existance
+            if (unitOfWork.UserRepository.GetAll(filter: user => user.Email == requestObject.email, orderBy: null, pageSize: 1, pageIndex: 1).Any())
+            {
+                response = new JsonResult(new { message = "email is linked to an another account!", time = DateTime.UtcNow })
+                {
+                    StatusCode = (int)HttpStatusCode.BadRequest,
+                    ContentType = "application/json"
+                };
+
+                return response;
+            }
+
+            // Check for username existance
+            if (unitOfWork.UserRepository.GetAll(filter: user => user.Username == requestObject.username, orderBy: null, pageSize: 1, pageIndex: 1).Any())
+            {
+                response = new JsonResult(new { message = "username existed ", time = DateTime.UtcNow })
+                {
+                    StatusCode = (int)HttpStatusCode.BadRequest,
+                    ContentType = "application/json"
+                };
+
+                return response;
+            }
 
             try
             {
+                User newUser = new User()
+                {
+                    Username = requestObject.username,
+                    Password = requestObject.password,
+                    Email = requestObject.email,
+                    Role = 4,
+                    Status = 3
+                };
                 unitOfWork.UserRepository.Add(newUser);
                 unitOfWork.Save();
 
-                returnObject.Add("message", "user added to database");
-
-                return Ok(returnObject);
+                response = new JsonResult(new { message = "User creation succeed!", time = DateTime.UtcNow })
+                {
+                    StatusCode = 202,
+                    ContentType = "application/json",
+                };
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                returnObject.Add("message", "something wrong happened while we try to add your account");
-                return BadRequest(returnObject);
+                response = new JsonResult(new { message = "User creation failed!", time = DateTime.UtcNow, error = ex.Message })
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError,
+                    ContentType = "application/json",
+                };
+
+
             }
+
+            return response;
         }
 
         [HttpPost]
@@ -155,10 +189,10 @@ namespace WebAPI.Controllers
 
         [HttpGet]
         [Route("check-login")]
-        [JwtTokenAuthorization]
-        public ActionResult<IEnumerable<string>> CheckLogin()
+        [JwtTokenAuthorization(Roles:"Admin")]
+        public ActionResult CheckLogin()
         {
-            JsonResult response = new JsonResult(new {message = "Authorized", time = DateTime.UtcNow})
+            JsonResult response = new JsonResult(new { message = "Authorized", time = DateTime.UtcNow })
             {
                 StatusCode = 200,
                 ContentType = "application/json",
@@ -167,6 +201,17 @@ namespace WebAPI.Controllers
             return response;
         }
 
+        [HttpPost]
+        [Route("reset-password")]
+        public ActionResult ResetPassword()
+        {
+            JsonResult response = new JsonResult(new { message = "Authorized", time = DateTime.UtcNow })
+            {
+                StatusCode = 200,
+                ContentType = "application/json",
+            };
 
+            return response;
+        }
     }
 }
