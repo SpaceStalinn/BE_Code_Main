@@ -9,5 +9,7 @@ namespace WebAPI.Models
 
         [Required]
         public required string password { get; set; }
+
+        public string? redirection { get; set; }
     }
 }

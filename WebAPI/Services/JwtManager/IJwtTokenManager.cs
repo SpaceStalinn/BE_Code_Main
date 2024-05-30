@@ -12,6 +12,9 @@ namespace WebAPI.Services.JwtManager
 
         User? ValidateAccessToken(string? token);
 
+        User? ValidateAccessToken(string? token, string[] roles);
+
         AuthenticationToken GenerateTokens(User user, int accessDuration = 10, int refreshDuration = 60);
+
     }
 }
