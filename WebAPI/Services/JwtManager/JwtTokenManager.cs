@@ -6,7 +6,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace WebAPI.Helper.JwtManager
+namespace WebAPI.Services.JwtManager
 {
     /// <summary>
     ///  The Service for creating and validating json web token, refreshing new token.
@@ -69,7 +69,7 @@ namespace WebAPI.Helper.JwtManager
             throw new NotImplementedException();
         }
 
-        public User? ValidateAccessToken(string token)
+        public User? ValidateAccessToken(string? token)
         {
             if (token == null)
             {

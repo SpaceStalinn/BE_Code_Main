@@ -4,6 +4,8 @@ using Repositories;
 using Repositories.Models;
 using System.Text.Json.Nodes;
 using WebAPI.Models;
+using WebAPI.Services.JwtManager;
+using WebAPI.Helper.AuthorizationPolicy;
 
 namespace WebAPI.Controllers
 {
@@ -35,11 +37,13 @@ namespace WebAPI.Controllers
             {
                 try
                 {
-                    responseJson.Add("jwt", null);
+                    var token = HttpContext.RequestServices.GetService<IJwtTokenManager>()?.GenerateAccessToken(user);
+                    responseJson.Add("jwt", token ?? throw new Exception(""));
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex);
+                    return this.Problem(statusCode: 500, title: "Can't generate new token!", detail:ex.Message, instance: ex.Source);
                 }
 
                 return Ok(responseJson);
@@ -151,14 +155,16 @@ namespace WebAPI.Controllers
 
         [HttpGet]
         [Route("check-login")]
+        [JwtTokenAuthorization]
         public ActionResult<IEnumerable<string>> CheckLogin()
         {
-            JsonObject response = new()
+            JsonResult response = new JsonResult(new {message = "Authorized", time = DateTime.UtcNow})
             {
-                { "isAuthenticated", "True" },
+                StatusCode = 200,
+                ContentType = "application/json",
             };
 
-            return Ok(response);
+            return response;
         }
 
 

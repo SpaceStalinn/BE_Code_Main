@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Models;
-using WebAPI.Helper.JwtManager;
+using WebAPI.Middlewares;
+using WebAPI.Services.JwtManager;
 namespace WebAPI
 {
     public class Program
@@ -14,8 +16,21 @@ namespace WebAPI
             builder.Services.AddSwaggerGen();
 
             builder.Services.AddDbContext<DentalClinicPlatformContext>(config => config.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
-          
-            builder.Services.AddSingleton<IJwtTokenManager, JwtTokenManager>();
+
+            builder.Services.AddTransient<IJwtTokenManager, JwtTokenManager>();
+
+
+            // Adding authorization method
+            builder.Services.AddAuthentication(option => {
+                option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                option.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+                .AddJwtBearer(option =>
+            {
+
+            });
+
 
             var app = builder.Build();
 
@@ -24,6 +39,8 @@ namespace WebAPI
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+
+            app.UseMiddleware<JwtMiddleware>(); 
 
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 

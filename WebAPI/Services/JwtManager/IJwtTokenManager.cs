@@ -2,7 +2,7 @@
 using Repositories.Models;
 using System.Text.Json.Nodes;
 
-namespace WebAPI.Helper.JwtManager
+namespace WebAPI.Services.JwtManager
 {
     public interface IJwtTokenManager
     {
@@ -10,7 +10,7 @@ namespace WebAPI.Helper.JwtManager
 
         string GenerateRefreshToken(User user, int duration = 60);
 
-        User? ValidateAccessToken(string token);
+        User? ValidateAccessToken(string? token);
 
         AuthenticationToken GenerateTokens(User user, int accessDuration = 10, int refreshDuration = 60);
     }
