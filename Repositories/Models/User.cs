@@ -15,7 +15,7 @@ public partial class User
 
     public string? Fullname { get; set; }
 
-    public string Email { get; set; }
+    public string Email { get; set; } = String.Empty;
 
     public string? Phone { get; set; }
 
