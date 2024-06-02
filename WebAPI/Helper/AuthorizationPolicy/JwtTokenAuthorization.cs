@@ -1,13 +1,14 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Core.NewFolder;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Repositories.Models;
-using WebAPI.Services.JwtManager;
+using Services.JwtManager;
 
 namespace WebAPI.Helper.AuthorizationPolicy
 {
-    [AttributeUsage(AttributeTargets.Method)]
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
     public class JwtTokenAuthorization : Attribute, IAuthorizationFilter
     {
         private readonly string[] allowedRoles;
@@ -34,39 +35,24 @@ namespace WebAPI.Helper.AuthorizationPolicy
         {
 
             // Skip all endpoint methods that allow anonymous access ([AllowAnonymous] attribute)
-            var allowAnoymous = context.ActionDescriptor.EndpointMetadata.OfType<AllowAnonymousAttribute>().Any();
-
-            if (allowAnoymous)
+            if (context.ActionDescriptor.EndpointMetadata.OfType<AllowAnonymousAttribute>().Any())
             {
                 return;
             }
 
-            var requestedFeature = context.HttpContext.RequestServices.GetService<IJwtTokenManager>();
+            var tokenManager = context.HttpContext.RequestServices.GetService<IJwtTokenService>();
+            var AccessToken = context.HttpContext.Request.Headers.Authorization.ToString();
 
-            //object? userInfo = context.HttpContext.Items["UserInfo"];
-
-            var token = context.HttpContext.Request.Headers.Authorization.ToString();
-
-            if (token == null)
+            if (tokenManager!.ValidateAccessToken(AccessToken.Split(" ").Last(), allowedRoles, out var message) == null)
             {
-                context.Result = new JsonResult(new {messsage = "Unauthorized! User has not login yet.", time = DateTime.UtcNow }) 
-                { 
-                    StatusCode = StatusCodes.Status401Unauthorized,  
+
+                var response = new HttpErrorResponse() {statusCode = 404, message = message};
+                context.Result = new JsonResult(new { response })
+                {
+                    StatusCode = StatusCodes.Status200OK,
                     ContentType = "application/json",
                 };
                 return;
-            }
-            else
-            {
-                if (requestedFeature!.ValidateAccessToken(token.Split(" ").Last(), allowedRoles) == null)
-                {
-                    context.Result = new JsonResult(new { messsage = "Unauthorized! Missing permissions", time = DateTime.UtcNow })
-                    {
-                        StatusCode = StatusCodes.Status401Unauthorized,
-                        ContentType = "application/json",
-                    };
-                    return;
-                }
             }
         }
     }
