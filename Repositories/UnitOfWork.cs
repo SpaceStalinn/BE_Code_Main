@@ -30,6 +30,7 @@ namespace Repositories
         {
             _context = context;
         }
+
         public GenericRepository<Status, int> StatusRepository
         {
             get
@@ -147,12 +148,23 @@ namespace Repositories
             }
         }
 
+        public GenericRepository<Result, Guid> ResultRepository
+        {
+            get
+            {
+                if (this._resultRepository == null)
+                {
+                    this._resultRepository = new GenericRepository<Result, Guid>(_context);
+                }
+
+                return _resultRepository;
+            }
+        }
+
 
         public User? Authenticate(string username, string password)
         {
             List<User> tempt = UserRepository.context.Users.Where((user) => (user.Username == username && user.Password == password)).ToList();
-
-            Console.WriteLine(tempt);
 
             if (tempt.Count < 1)
             {
@@ -164,6 +176,28 @@ namespace Repositories
             }
         }
 
+        public bool CheckAvailability(string username, string email, out string message)
+        {
+            List<User> ExistanceList = UserRepository.context.Users.Where((user) => (user.Username == username || user.Email == email)).ToList(); ;
+
+            foreach (User user in ExistanceList)
+            {
+                if (user.Username.Equals(username))
+                {
+                    message = "Account with this username is already existed";
+                    return false;
+                }
+
+                if (user.Email.Equals(email))
+                {
+                    message = "Account with this email is already existed";
+                    return false;
+                }
+            }
+
+            message = "Account is available for creation";
+            return true;
+        }
 
         public void Save()
         {
