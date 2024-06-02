@@ -1,12 +1,16 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Core.Exception;
+using Core.HttpModels;
+using Core.NewFolder;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Repositories;
 using Repositories.Models;
-using System.Net;
-using System.Text.Json.Nodes;
+using Services.EmailSerivce;
+using Services.JwtManager;
+using System.Text;
 using WebAPI.Helper.AuthorizationPolicy;
-using WebAPI.Models;
-using WebAPI.Services.JwtManager;
+
 
 namespace WebAPI.Controllers
 {
@@ -16,181 +20,138 @@ namespace WebAPI.Controllers
     {
         private readonly DentalClinicPlatformContext _context;
         private readonly IConfiguration _config;
-        private readonly UnitOfWork unitOfWork;
+        private readonly UnitOfWork _unitOfWork;
 
         public AuthenticationController(IConfiguration configuration, DentalClinicPlatformContext context)
         {
             _context = context;
             _config = configuration;
-            unitOfWork = new UnitOfWork(_context);
+            _unitOfWork = new UnitOfWork(context);
         }
 
         [HttpPost]
         [Route("login")]
         [AllowAnonymous]
-        public IActionResult LogUserIn([FromBody] AuthModel requestObject)
+        public IActionResult LogUserIn([FromBody] UserAuthenticationRequestModel requestObject)
         {
-            Console.WriteLine(requestObject);
-            JsonObject responseJson = new JsonObject();
-
-            User? user = unitOfWork.Authenticate(requestObject.username, requestObject.password);
+            User? user = _unitOfWork.Authenticate(requestObject.UserName, requestObject.Password);
 
             if (user != null)
             {
                 try
                 {
-                    var token = HttpContext.RequestServices.GetService<IJwtTokenManager>()?.GenerateAccessToken(user);
-                    responseJson.Add("jwt", token ?? throw new Exception(""));
+                    var token = HttpContext.RequestServices.GetService<IJwtTokenService>()?.GenerateTokens(user);
+                    return Ok(token);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex);
-                    return this.Problem(statusCode: 500, title: "Can't generate new token!", detail: ex.Message, instance: ex.Source);
-                }
+                    return Ok(new HttpErrorResponse()
+                    {
+                        statusCode = 500,
+                        message = ex.Message,
 
-                return Ok(responseJson);
+                    });
+                }
             }
             else
             {
-                responseJson.Add("error", "Invalid username or password.");
-                return Unauthorized(responseJson);
+                return Ok(new HttpErrorResponse()
+                {
+                    statusCode = 401,
+                    message = "Username or Password is invalid."
+                });
             }
         }
 
-
         [HttpPost]
-        [Route("register/user")]
-        [AllowAnonymous]
-        public IActionResult RegisterCustomer([FromBody] RegisterModel requestObject)
+        [Route("logout")]
+        [JwtTokenAuthorization]
+        public IActionResult LogUserOut()
         {
-            JsonResult response;
+            IJwtTokenService JwtService = HttpContext.RequestServices.GetService<IJwtTokenService>()!;
 
-            // Check for email existance
-            if (unitOfWork.UserRepository.GetAll(filter: user => user.Email == requestObject.email, orderBy: null, pageSize: 1, pageIndex: 1).Any())
+            string token = Request.Headers.Authorization.ToString();
+
+            var claims = JwtService.GetPrincipalsFromToken(token);
+
+            var userID = int.Parse(claims.Claims.FirstOrDefault(claim => claim.Type == "id")!.Value);
+
+            User user = _unitOfWork.UserRepository.GetById(userID)!;
+
+            // Hiện tại có thể làm một cách đơn giản đó là trả lại cho bên kia một cái RefreshToken hết hạn rồi kêu nó xài.
+            AuthenticationToken newToken = new AuthenticationToken()
             {
-                response = new JsonResult(new { message = "email is linked to an another account!", time = DateTime.UtcNow })
-                {
-                    StatusCode = (int)HttpStatusCode.BadRequest,
-                    ContentType = "application/json"
-                };
-
-                return response;
-            }
-
-            // Check for username existance
-            if (unitOfWork.UserRepository.GetAll(filter: user => user.Username == requestObject.username, orderBy: null, pageSize: 1, pageIndex: 1).Any())
-            {
-                response = new JsonResult(new { message = "username existed ", time = DateTime.UtcNow })
-                {
-                    StatusCode = (int)HttpStatusCode.BadRequest,
-                    ContentType = "application/json"
-                };
-
-                return response;
-            }
-
-            try
-            {
-                User newUser = new User()
-                {
-                    Username = requestObject.username,
-                    Password = requestObject.password,
-                    Email = requestObject.email,
-                    Role = 4,
-                    Status = 3
-                };
-                unitOfWork.UserRepository.Add(newUser);
-                unitOfWork.Save();
-
-                response = new JsonResult(new { message = "User creation succeed!", time = DateTime.UtcNow })
-                {
-                    StatusCode = 202,
-                    ContentType = "application/json",
-                };
-            }
-            catch (Exception ex)
-            {
-                response = new JsonResult(new { message = "User creation failed!", time = DateTime.UtcNow, error = ex.Message })
-                {
-                    StatusCode = (int)HttpStatusCode.InternalServerError,
-                    ContentType = "application/json",
-                };
-
-
-            }
-
-            return response;
-        }
-
-        [HttpPost]
-        [Route("register/clinic")]
-        [AllowAnonymous]
-        public IActionResult RegisterClinc([FromBody] RegisterModel requestObject)
-        {
-            User newUser = new User()
-            {
-                Username = requestObject.username,
-                Password = requestObject.password,
-                Email = requestObject.email,
-                Role = 2,
-                Status = 3
+                AccessToken = JwtService.GenerateAccessToken(user, 0),
+                RefreshToken = JwtService.GenerateRefreshToken(user, 0)
             };
 
-            JsonObject returnObject = new JsonObject();
+            // Đang tìm cách logout user, có một cách tạm thời đó là sử dụng một trường thuộc tính hoặc một bảng.
+            // để ghi nhớ cái refreshToken hiện tại của người dùng trong database.
 
-            try
-            {
-                unitOfWork.UserRepository.Add(newUser);
-                unitOfWork.Save();
+            // Nhưng sẽ phải update lại desgin database của bên mình.
 
-                returnObject.Add("message", "user added to database");
-
-                return Ok(returnObject);
-            }
-            catch (Exception)
-            {
-                returnObject.Add("message", "something wrong happened while we try to add your account to the system.");
-                return BadRequest(returnObject);
-            }
+            return Ok(newToken);
         }
 
         [HttpPost]
-        [Route("register/doctor")]
-        [Authorize]
-        public IActionResult RegisterDoctor([FromBody] RegisterModel requestObject)
+        [Route("refresh")]
+        [AllowAnonymous]
+        public IActionResult RefreshToken([FromBody] AuthenticationToken tokens)
         {
-            User newUser = new User()
+            var tokenService = HttpContext.RequestServices.GetService<IJwtTokenService>()!;
+
+            // Getting tokens from the request body for validation and new key generation.
+            string accessToken = tokens.AccessToken;
+            string refreshToken = tokens.RefreshToken;
+
+            string[] refreshTokenParts = Encoding.UTF8.GetString(Convert.FromBase64String(refreshToken)).Split("|");
+
+            Console.WriteLine(DateTime.Parse(refreshTokenParts[2]));
+            Console.WriteLine(DateTime.UtcNow);
+            Console.WriteLine(DateTime.Compare(DateTime.Parse(refreshTokenParts[2]), DateTime.UtcNow));
+
+            if (DateTime.Compare(DateTime.Parse(refreshTokenParts[2]), DateTime.UtcNow) < 0)
             {
-                Username = requestObject.username,
-                Password = requestObject.password,
-                Email = requestObject.email,
-                Role = 3,
-                Status = 3
-            };
-
-            JsonObject returnObject = new JsonObject();
-
-            try
-            {
-                unitOfWork.UserRepository.Add(newUser);
-                unitOfWork.Save();
-
-                returnObject.Add("message", "user added to database");
-
-                return Ok(returnObject);
+                return Ok(new HttpErrorResponse() { statusCode = 400, message = "Refresh Token is expired" });
             }
-            catch (Exception)
-            {
-                returnObject.Add("message", "something wrong happened while we try to add your account to the system.");
-                return BadRequest(returnObject);
-            }
+
+            var principals = tokenService.GetPrincipalsFromToken(accessToken);
+            User user = _unitOfWork.UserRepository.GetById(int.Parse(principals.Claims.First(claim => claim.Type == "id").Value))!;
+
+            var token = HttpContext.RequestServices.GetService<IJwtTokenService>()?.GenerateTokens(user);
+            return Ok(token);
         }
-
 
         [HttpGet]
-        [Route("check-login")]
-        [JwtTokenAuthorization(Roles:"Admin")]
-        public ActionResult CheckLogin()
+        [Route("activate/{id}")]
+        [AllowAnonymous]
+        public IActionResult ActivateUserAccount(int id)
+        {
+            var user = _unitOfWork.UserRepository.GetById(id);
+            if (user != null)
+            {
+                user.Status = 1;
+                _unitOfWork.UserRepository.Update(user);
+                _unitOfWork.Save();
+
+                var emailService = HttpContext.RequestServices.GetService<IEmailService>()!;
+
+                string emailBody = $"Xin chào người dùng! <br/>" +
+                    $"Chúng tôi đã kích hoạt tài khoản cho email {user.Email}, cảm ơn bạn đã đăng kí dịch vụ của chúng tôi.<br>" +
+                    $"Nếu bạn không phải là người đăng kí tài khoản trên, hãy truy cập vào [Link xóa tài khoản] để hủy việc tạo tài khoản của bạn. Chúc bạn có một ngày mới vui vẻ!";
+
+                emailService.SendMailGoogleSmtp(target: user.Email, subject: "Thông báo kích hoạt tài khoản thành công", body: emailBody);
+
+                return Ok(new HttpValidResponse() { statusCode = 200, message = "Activated user account!" });
+            };
+
+            return Ok(new HttpErrorResponse() { statusCode = 404, message = "User not found!" });
+        }
+
+        [HttpGet]
+        [Route("check-login-admin")]
+        [JwtTokenAuthorization(Roles: "Admin")]
+        public ActionResult CheckLoginAdmin()
         {
             JsonResult response = new JsonResult(new { message = "Authorized", time = DateTime.UtcNow })
             {
@@ -201,9 +162,10 @@ namespace WebAPI.Controllers
             return response;
         }
 
-        [HttpPost]
-        [Route("reset-password")]
-        public ActionResult ResetPassword()
+        [HttpGet]
+        [Route("check-login-user")]
+        [JwtTokenAuthorization]
+        public ActionResult CheckLogin()
         {
             JsonResult response = new JsonResult(new { message = "Authorized", time = DateTime.UtcNow })
             {
