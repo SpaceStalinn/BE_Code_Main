@@ -22,8 +22,8 @@ namespace Core.HttpModels
         public string Status { get; set; } = string.Empty;
 
         // Optional Data
-        public DateTime JoinedDate { get; set; }
+        public DateTime? JoinedDate { get; set; }
         
-        public Guid Clinic {get; set; } = Guid.Empty;
+        public int? Clinic {get; set; }
     }
 }

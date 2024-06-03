@@ -131,9 +131,33 @@ namespace Services.EmailSerivce
         /// <returns>true if success, else false.</returns>
         public async Task<bool>SendMailGoogleSmtp(string target, string subject, string body)
         {
-            EmailServiceModel configuration = CreateConfiguration(_configuration.GetValue<string>("EmailService:Account")!, _configuration.GetValue<string>("EmailService:Password")!, subject, body, target);
+            var account = _configuration.GetValue<string>("EmailService:Email")!;
+            var password = _configuration.GetValue<string>("EmailService:Password")!;
 
-            return await SendMailGoogleSmtp(configuration);
+            MailMessage emailMessage = new MailMessage(account, target, subject, body);
+
+            emailMessage.BodyEncoding = Encoding.UTF8;
+            emailMessage.SubjectEncoding = Encoding.UTF8;
+            emailMessage.IsBodyHtml = true;
+            emailMessage.ReplyToList.Add(new MailAddress(account));
+            emailMessage.Sender = new MailAddress(account);
+
+            try
+            {
+                using (SmtpClient client = new SmtpClient("smtp.gmail.com"))
+                {
+                    client.Port = 587;
+                    client.Credentials = new NetworkCredential(account, password);
+                    client.EnableSsl = true;
+                    await client.SendMailAsync(emailMessage);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message); // TODO: Using Exception Handler to response instead.
+                return false;
+            }
         }
     }
 }

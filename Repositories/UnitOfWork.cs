@@ -161,21 +161,64 @@ namespace Repositories
             }
         }
 
-
-        public User? Authenticate(string username, string password)
+        public GenericRepository<Payment, Guid> PaymentRepository
         {
-            List<User> tempt = UserRepository.context.Users.Where((user) => (user.Username == username && user.Password == password)).ToList();
+            get
+            {
+                if (this._paymentRepository == null)
+                {
+                    this._paymentRepository = new GenericRepository<Payment, Guid>(_context);
+                }
 
-            if (tempt.Count < 1)
-            {
-                return null;
-            }
-            else
-            {
-                return tempt[0];
+                return _paymentRepository;
             }
         }
 
+        public GenericRepository<PaymentType, int> PaymentTypeRepositoy
+        {
+            get
+            {
+                if (this._paymentTypeRepository == null)
+                {
+                    this._paymentTypeRepository = new GenericRepository<PaymentType, int>(_context);
+                }
+
+                return _paymentTypeRepository;
+            }
+        }
+
+        public GenericRepository<Message, Guid> MessageRepository
+        {
+            get
+            {
+                if (this._messageRepository == null)
+                {
+                    this._messageRepository = new GenericRepository<Message, Guid>(_context);
+                }
+
+                return _messageRepository;
+            }
+        }
+
+        /// <summary>
+        ///  <para>Kiểm tra thông tin đăng nhập của một người dùng.</para>
+        /// </summary>
+        /// <param name="username">Tên tài khoản đăng nhập</param>
+        /// <param name="password">Mật khẩu của tài khoản</param>
+        /// <returns>Thông tin chi tiết của <see cref="User">người dùng</see> </returns>
+        public User? Authenticate(string username, string password)
+        {
+            return UserRepository.context.Users.Where((user) => (user.Username == username && user.Password == password)).FirstOrDefault();
+        }
+
+        /// <summary>
+        ///   <para>Kiểm tra thông tin về username và email để kiểm tra có thể tạo người dùng mới trong hệ thống hay không.</para>
+        ///   <para>Trả về một chuỗi nêu lí do tại sao lại thất bại (nếu có).</para>
+        /// </summary>
+        /// <param name="username">Tên tài khoản cần kiểm tra</param>
+        /// <param name="email">Email tài khoản cần kiểm tra</param>
+        /// <param name="message">Tin nhắn đầu ra</param>
+        /// <returns><see cref="bool">true</see> nếu có thể tạo một người dùng, <see cref="bool">false</see> nếu email hoặc username đã tồn tại.</returns>
         public bool CheckAvailability(string username, string email, out string message)
         {
             List<User> ExistanceList = UserRepository.context.Users.Where((user) => (user.Username == username || user.Email == email)).ToList(); ;
@@ -199,6 +242,59 @@ namespace Repositories
             return true;
         }
 
+        /// <summary>
+        ///  <para>Kiểm tra xem người dùng có tồn tại trong hệ thống hay không dựa trên ID của họ trong hệ thống.</para>
+        /// </summary>
+        /// <param name="id">Id người dùng</param>
+        /// <param name="user">Đầu ra là một thông tin User nếu tìm thấy, không thì null</param>
+        /// <returns>Trả về <see cref="bool">true</see> nếu có tồn tại người dùng với id này, không thì <see cref="bool">false</see>.</returns>
+        public bool UserExists(int id, out User? user)
+        {
+            if (UserRepository.GetById(id) != null)
+            {
+                user = UserRepository.GetById(id);
+                return true;
+            };
+
+            user = null;
+            return false;
+        }
+
+        /// <summary>
+        ///  <para>Tìm thông tin của một vai trò người dùng trong hệ thống.</para>
+        /// </summary>
+        /// <param name="roleName">Tên vai trò</param>
+        /// <returns><see cref="Nullable">null</see> nếu không tồn tại <see cref="Role"/> nào có tên như input, nếu tồn tại thì trả về thông tin của <see cref="Role"/> đó.</returns>
+        public Role? GetRoleByName(string roleName)
+        {
+            return _context.Roles.First(x => x.RoleName == roleName);
+        }
+
+        /// <summary>
+        ///     <para>Tìm thông tin của người dùng dựa trên email.</para>
+        ///     <para>Mỗi người dùng chỉ được liên kết một địa chỉ với một tài khoản nên có thể dễ dàng tìm kiếm thông tin cảu người đó.</para>
+        /// </summary>
+        /// <param name="email">Email của người dùng</param>
+        /// <returns><see cref="Nullable">null</see> nếu người dùng không tồn tại, thông tin <see cref="User"/> nếu có.</returns>
+        public User? GetUserWithEmail(string email)
+        {
+            return _context.Users.FirstOrDefault(x => x.Email == email);
+        }
+
+        /// <summary>
+        ///  <para>Kiếm thông tin về một trạng thái của vật thể trong database dựa trên tên của trạng thái.</para>
+        /// </summary>
+        /// <param name="statusName">Tên của trạng thái</param>
+        /// <returns>thông tin trạng thái <see cref="Status"/> trong hệ thống nếu tồn tại, không thì <see cref="Nullable">null</see>.</returns>
+        public Status? GetStatusByName(string statusName)
+        {
+            return _context.Statuses.First(x => x.StatusName == statusName);
+        }
+
+        /// <summary>
+        ///  Lưu trạng thái hiện tại của context xuống database. (commit changes) <br/>
+        ///  Nếu không gọi hàm này khi thay đổi thông tin thì tất cả thay đổi sẽ được đặt trong trạng thái "chờ"
+        /// </summary>
         public void Save()
         {
             _context.SaveChanges();

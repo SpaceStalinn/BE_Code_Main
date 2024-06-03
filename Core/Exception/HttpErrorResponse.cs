@@ -8,7 +8,8 @@ namespace Core.NewFolder
     {
         public int statusCode { get; set; }
         public string message { get; set; } = String.Empty;
-        object? Content { get; set; }
+        public object? Content { get; set; }
+        public string? errorDetail { get; set; } = String.Empty;
 
         public HttpErrorResponse() {}
         public HttpErrorResponse(object content) 
