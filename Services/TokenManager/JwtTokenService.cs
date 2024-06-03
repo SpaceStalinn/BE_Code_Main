@@ -207,7 +207,7 @@ namespace Services.JwtManager
             {
                 message = "The token is issued by an unknown source!";
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 message = ex.Message;
             }
@@ -230,7 +230,7 @@ namespace Services.JwtManager
                 //ValidIssuer = _config.GetValue<string>("JWT:Issuer")!,
                 ValidateLifetime = false //here we are saying that we don't care about the token's expiration date
             };
-            
+
             SecurityToken securityToken;
 
             var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out securityToken);
@@ -239,8 +239,32 @@ namespace Services.JwtManager
 
             if (jwtSecurityToken == null || !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
                 throw new SecurityTokenException("Invalid token");
-            
+
             return principal;
+        }
+
+        public IEnumerable<Claim> GetPrincipalsFromGoogleToken(string token)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+
+            var tokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = false,
+                ValidateAudience = false, //you might want to validate the audience and issuer depending on your use case
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.GetValue<string>("GoogleO2Auth:Token")!)),
+                //ValidIssuer = _config.GetValue<string>("JWT:Issuer")!,
+                ValidateLifetime = false //here we are saying that we don't care about the token's expiration date
+            };
+
+            SecurityToken securityToken = tokenHandler.ReadToken(token);
+
+            var jwtSecurityToken = securityToken as JwtSecurityToken;
+
+            if (jwtSecurityToken == null)
+                throw new SecurityTokenException("Invalid token");
+
+            return jwtSecurityToken.Claims;
         }
     }
 }

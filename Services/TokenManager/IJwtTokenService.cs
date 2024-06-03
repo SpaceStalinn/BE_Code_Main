@@ -19,5 +19,7 @@ namespace Services.JwtManager
 
         public ClaimsPrincipal GetPrincipalsFromToken(string token);
 
+        public IEnumerable<Claim> GetPrincipalsFromGoogleToken(string token);
+
     };
 }

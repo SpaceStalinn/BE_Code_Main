@@ -1,5 +1,6 @@
 ﻿using Core.Exception;
 using Core.HttpModels;
+using Core.Misc;
 using Core.NewFolder;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -45,21 +46,46 @@ namespace WebAPI.Controllers
                 }
                 catch (Exception ex)
                 {
-                    return Ok(new HttpErrorResponse()
-                    {
-                        statusCode = 500,
-                        message = ex.Message,
-
-                    });
+                    return this.BadRequest(new HttpErrorResponse() { statusCode=401, message="người dùng không chưa đăng kí trong hệ thống."});
                 }
             }
             else
             {
-                return Ok(new HttpErrorResponse()
+                return BadRequest(new HttpErrorResponse(){statusCode=401, message="Username or Password is invalid."});
+            }
+        }
+
+        [HttpPost]
+        [Route("google")]
+        [AllowAnonymous]
+        public IActionResult LogUserInWithGoogle([FromBody] GoogleAuthModel Authtoken)
+        {
+            var service = HttpContext.RequestServices.GetService<IJwtTokenService>()!;
+
+            var principals = service.GetPrincipalsFromGoogleToken(Authtoken.GoogleToken);
+
+            foreach (var item in principals)
+            {
+                Console.WriteLine($"{item.Type} : {item.Value}");
+            }
+
+            User? user = _unitOfWork.GetUserWithEmail(principals.First(x => x.Type == "email").Value)!;
+
+            if (user != null)
+            {
+                try
                 {
-                    statusCode = 401,
-                    message = "Username or Password is invalid."
-                });
+                    var token = HttpContext.RequestServices.GetService<IJwtTokenService>()?.GenerateTokens(user);
+                    return Ok(token);
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new HttpErrorResponse(){statusCode=500,message=ex.Message});
+                }
+            }
+            else
+            {
+                return BadRequest(new HttpErrorResponse(){statusCode=401,message="Người dùng không đăng kí trong hệ thống"});
             }
         }
 
@@ -130,6 +156,12 @@ namespace WebAPI.Controllers
             var user = _unitOfWork.UserRepository.GetById(id);
             if (user != null)
             {
+
+                if (user.Status == 1)
+                {
+                    return BadRequest(new HttpErrorResponse() { statusCode=400, message="Tài khoản người dùng này đã được kích hoạt."});
+                }
+
                 user.Status = 1;
                 _unitOfWork.UserRepository.Update(user);
                 _unitOfWork.Save();
@@ -142,11 +174,13 @@ namespace WebAPI.Controllers
 
                 emailService.SendMailGoogleSmtp(target: user.Email, subject: "Thông báo kích hoạt tài khoản thành công", body: emailBody);
 
-                return Ok(new HttpValidResponse() { statusCode = 200, message = "Activated user account!" });
+                return Ok(new HttpValidResponse() { statusCode = 200, message = "Đã kích hoạt tài khoản người dùng!" });
             };
 
-            return Ok(new HttpErrorResponse() { statusCode = 404, message = "User not found!" });
+            return Ok(new HttpErrorResponse() { statusCode = 404, message = "Không tìm thấy người dùng!" });
         }
+
+        // ================================================== FOR TESTING PURPOSES ======================================================
 
         [HttpGet]
         [Route("check-login-admin")]
