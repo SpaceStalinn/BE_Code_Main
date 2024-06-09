@@ -64,6 +64,7 @@ namespace WebAPI.Controllers
             user.Password = newPassword;
 
             _unitOfWork.UserRepository.Update(user);
+            _unitOfWork.Save();
 
             string subject = $"Khôi phục mật khẩu cho tài khoản {user.Username}";
 
@@ -71,9 +72,9 @@ namespace WebAPI.Controllers
                 $"Chúng tôi đã nhận được yêu cầu thay đổi mật khẩu tài khoản của bạn, hãy sử dụng mật khẩu <b>{newPassword}</b> cho lần đăng nhập kế tiếp và thay đổi mật khẩu của bạn.<br/>";
 
 
-            var configuration = emailService.CreateConfiguration(_config.GetValue<string>("EmailService:Email")!, _config.GetValue<string>("EmailService:Password")!, target.Email, subject, body);
+            //var configuration = emailService.CreateConfiguration(_config.GetValue<string>("EmailService:Email")!, _config.GetValue<string>("EmailService:Password")!, target.Email, subject, body);
 
-            emailService.SendMailGoogleSmtp(configuration);
+            emailService.SendMailGoogleSmtp(target.Email, subject, body);
 
             return Ok(new HttpValidResponse() { statusCode = 202, message = "Yêu cầu được chấp thuận." });
         }
@@ -122,7 +123,7 @@ namespace WebAPI.Controllers
         /// <returns>A User Info Model thats contains basic user information</returns>
         [HttpGet("info")]
         [JwtTokenAuthorization]
-        public ActionResult<UserInfoModel> GetUser()
+        public ActionResult<UserInfoModel> GetUser()    
         {
             var token = Request.Headers.Authorization.ToString().Split(' ').Last();
 
@@ -134,7 +135,7 @@ namespace WebAPI.Controllers
 
             if (user == null)
             {
-                return BadRequest(new HttpErrorResponse() { statusCode = 404, message = "Token không hợp lệ hoặc người dùng không tồn !" });
+                return BadRequest(new HttpErrorResponse() { statusCode = 404, message = "Token không hợp lệ hoặc người dùng không tồn tại!" });
             }
 
             UserInfoModel userInfo = new UserInfoModel()
@@ -146,7 +147,7 @@ namespace WebAPI.Controllers
                 JoinedDate = user.CreationDate,
                 Phone = user.PhoneNumber ?? null,
                 Role = claims.Claims.First(claim => claim.Type == ClaimTypes.Role).Value,
-                Status = claims.Claims.First(claim => claim.Type == "status").Value,
+                Status = user.Status ? "Active" : "Inactive",
             };
 
             return Ok(userInfo);
@@ -167,6 +168,7 @@ namespace WebAPI.Controllers
                     errorDetail = responseMessage
                 });
             }
+
             try
             {
                 User newUser = new User()
@@ -183,12 +185,12 @@ namespace WebAPI.Controllers
                 var emailService = HttpContext.RequestServices.GetService<IEmailService>()!;
 
                 string body = $"Xin chào người dùng! <br/>" +
-                    $"Chúng tôi đã nhận được yêu cầu tạo tài khoản cho email {newUser.Email}, cảm ơn bạn đã đăng kí dịch vụ của chúng tôi. <br/>" +
+                    $"Chúng tôi đã nhận được yêu cầu tạo tài khoản cho email {requestObject.Email}, cảm ơn bạn đã đăng kí dịch vụ của chúng tôi. <br/>" +
                     $"Vui lòng xác thực tài khoản thông qua cổng xác thực của chúng tôi tại [Tạo trang xác thực bên phía front-end call tới api xác thực phía backend]";
 
                 if (!await emailService.SendMailGoogleSmtp(requestObject.Email, "Xác nhận yêu cầu tạo tài khoản người dùng", body))
                 {
-                    throw new Exception("Can't send email to user.");
+                    throw new Exception("Không thể gửi email cho người dùng");
                 }
 
                 return Ok(new HttpValidResponse() { statusCode = 202, message = "Yêu cầu tạo mới người dùng đang được xử lí." });
