@@ -47,7 +47,7 @@ namespace WebAPI.Controllers
                 }
                 catch (Exception ex)
                 {
-                    return this.BadRequest(new HttpErrorResponse() { statusCode = 401, message = "người dùng không chưa đăng kí trong hệ thống." });
+                    return this.BadRequest(new HttpErrorResponse() { statusCode = 401, message = ex.Message });
                 }
             }
             else
