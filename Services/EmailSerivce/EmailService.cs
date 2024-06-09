@@ -123,7 +123,7 @@ namespace Services.EmailSerivce
         /// <summary>
         ///  The service sends an email to the target (usually for notifications and other verification purposes)
         ///  This is a much more simplified way to send an email.
-        ///  The service
+        ///  Consider using this instead of other three
         /// </summary>
         /// <param name="target">The target email or the recipient</param>
         /// <param name="subject">The subject of the email that's summarize the email topic</param>

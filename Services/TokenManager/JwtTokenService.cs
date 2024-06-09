@@ -37,7 +37,7 @@ namespace Services.TokenManager
         {
 
             // Getting token Key and Issuer in the configuration file for encrypting the token.
-            string TokenKey = _config.GetValue<string>("JWT:Token")!;
+            string TokenKey = _config.GetValue<string>("JWT:Key")!;
             string Issuer = _config.GetValue<string>("JWT:Issuer")!;
 
             // Get User information to put in the token to create user Identity.
@@ -45,13 +45,18 @@ namespace Services.TokenManager
             //var userStatus = _unitOfWork.StatusRepository.GetById(user.Status)!;
 
             var userStatus = true;
-            var userRole = _unitOfWork.RoleRepository.GetById(user.RoleId)!;
+            var userRole = _unitOfWork.RoleRepository.GetById(user.RoleId);
+
+            if (userRole == null)
+            {
+                throw new Exception("Role not exist");
+            }
 
             var claims = new ClaimsIdentity(new[]
             {
                 new Claim("id", user.UserId.ToString()),
                 new Claim("username", user.Username),
-                new Claim("email", user.Email),
+                new Claim("email", user.Email!),
                 new Claim("role", userRole.RoleName),
 
                 //new Claim("status",userStatus.StatusName),
@@ -120,7 +125,7 @@ namespace Services.TokenManager
 
             var TokenHandler = new JwtSecurityTokenHandler();
 
-            string TokenKey = _config.GetValue<string>("JWT:Token")!;
+            string TokenKey = _config.GetValue<string>("JWT:Key")!;
             string Issuer = _config.GetValue<string>("JWT:Issuer")!;
 
             var validatior = new TokenValidationParameters()
@@ -136,7 +141,7 @@ namespace Services.TokenManager
             {
                 TokenHandler.ValidateToken(token, validatior, out var validatedToken);
 
-                var Token = (JwtSecurityToken)validatedToken;
+                var Token = (JwtSecurityToken) validatedToken;
 
                 int userId = int.Parse(Token.Claims.First(x => x.Type == "id").Value);
 
@@ -169,7 +174,7 @@ namespace Services.TokenManager
 
             var TokenHandler = new JwtSecurityTokenHandler();
 
-            string TokenKey = _config.GetValue<string>("JWT:Token")!;
+            string TokenKey = _config.GetValue<string>("JWT:Key")!;
             string Issuer = _config.GetValue<string>("JWT:Issuer")!;
 
             var validatior = new TokenValidationParameters()
@@ -189,8 +194,6 @@ namespace Services.TokenManager
 
                 int userId = int.Parse(Token.Claims.First(x => x.Type == "id").Value);
                 string userRole = Token.Claims.First(x => x.Type == "role").Value;
-
-                Console.WriteLine(userRole);
 
                 if (roles.Length > 0 && !roles.Contains(userRole))
                 {
@@ -224,7 +227,7 @@ namespace Services.TokenManager
         {
             var tokenHandler = new JwtSecurityTokenHandler();
 
-            var tokenKey = _config.GetValue<string>("JWT:Token")!;
+            var tokenKey = _config.GetValue<string>("JWT:Key")!;
 
             var tokenValidationParameters = new TokenValidationParameters
             {
