@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Repositories;
 using Repositories.Models;
 using System.Net;
+using System.Security.Claims;
 
 namespace WebAPI.Controllers
 {
@@ -28,9 +29,27 @@ namespace WebAPI.Controllers
 
         [HttpPost]
         [Route("register")]
+        // -----------------
+        // Ông check giúp khúc này
         [AllowAnonymous]
+        // -----------------
         public async Task<IActionResult> RegisterClinic([FromBody] ClinicRegistrationModel requestObject)
         {
+            //Khúc này chatgpt nhờ ông check giúp tui coi có cách nào khác không
+            //-----------------------------------
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+            {
+                return Unauthorized(new HttpErrorResponse()
+                {
+                    statusCode = 401,
+                    message = "Bạn cần đăng nhập để thực hiện hành động này"
+                });
+            }
+
+            //-----------------------------------
+
             if (!_unitOfWork.CheckClinicAvailability(requestObject.Name, out var responseMessage))
             {
                 return BadRequest(new HttpErrorResponse()
@@ -51,7 +70,7 @@ namespace WebAPI.Controllers
                     OpenHour = TimeOnly.Parse(requestObject.OpenHour),
                     CloseHour = TimeOnly.Parse(requestObject.CloseHour),
                     Status = true,
-                    Owner = _unitOfWork.UserRepository.GetById(3) // Update this to get the correct Owner ID
+                    Owner = _unitOfWork.UserRepository.GetById(userId) // Update this to get the correct Owner ID
                 };
 
                 // Add clinic services

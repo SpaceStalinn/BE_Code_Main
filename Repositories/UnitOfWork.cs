@@ -147,6 +147,7 @@ namespace Repositories
         }
 
 
+        //-----------------------------------------------------------------------------------
         public bool CheckClinicAvailability(string clinicName, out string message)
         {
             List<Clinic> ExistanceList = ClinicRepository.context.Clinics.Where((clinic) => (clinic.Name == clinicName)).ToList();
@@ -163,6 +164,8 @@ namespace Repositories
             message = "Clinic is available for creation";
             return true;
         }
+        //-----------------------------------------------------------------------------------
+
 
 
 

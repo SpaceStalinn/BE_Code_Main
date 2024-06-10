@@ -53,10 +53,12 @@ namespace PlatformRepository.Repositories
         }
 
         // cho tui xin thêm cái hàm này lấy hết mấy cái service
+        //-------------------------------------
         public virtual IEnumerable<T> GetAll()
         {
             return dbSet.ToList();
         }
+        //-------------------------------------
 
         public virtual T? GetById(X id)
         {
