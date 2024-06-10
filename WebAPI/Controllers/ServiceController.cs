@@ -21,7 +21,7 @@ namespace WebAPI.Controllers
         }
 
         [HttpGet]
-        [Route("getall")]
+        [Route("get-all")]
         public IActionResult GetAllServices()
         {
             try
