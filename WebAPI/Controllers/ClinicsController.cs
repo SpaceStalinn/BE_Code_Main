@@ -29,13 +29,18 @@ namespace WebAPI.Controllers
 
         [HttpPost]
         [Route("register")]
+        // -----------------
+        // Ông check giúp khúc này
         [AllowAnonymous]
+        // -----------------
         public async Task<IActionResult> RegisterClinic([FromBody] ClinicRegistrationModel requestObject)
         {
             //Khúc này chatgpt nhờ ông check giúp tui coi có cách nào khác không
             //-----------------------------------
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim == null)
+
+
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
             {
                 return Unauthorized(new HttpErrorResponse()
                 {
@@ -45,7 +50,6 @@ namespace WebAPI.Controllers
             }
 
             int userId = int.Parse(userIdClaim.Value);
-
             //-----------------------------------
 
             if (!_unitOfWork.CheckClinicAvailability(requestObject.Name, out var responseMessage))
