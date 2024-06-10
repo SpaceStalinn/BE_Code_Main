@@ -5,7 +5,9 @@ using Microsoft.OpenApi.Models;
 using Repositories.Models;
 using Services.EmailSerivce;
 using Services.JwtManager;
+using Services.TokenManager;
 using System.Text;
+using WebAPI.Middlewares;
 
 
 namespace WebAPI
@@ -22,16 +24,16 @@ namespace WebAPI
 
             builder.Services.AddDbContext<DentalClinicPlatformContext>(config => config.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
 
+            // Add Services to the program
             builder.Services.AddTransient<IJwtTokenService, JwtTokenService>();
             builder.Services.AddTransient<IEmailService, EmailService>();
 
+            // Add authorization testing for Swagger.
             builder.Services.AddSwaggerGen(option =>
             {
                 option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
-                    Description = @"JWT Authorization header using the Bearer scheme. \r\n\r\n 
-                      Enter 'Bearer' [space] and then your token in the text input below.
-                      \r\n\r\nExample: 'Bearer 12345abcdef'",
+                    Description = @"JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below. Example: 'Bearer 12345abcdef'",
                     Name = "Authorization",
                     In = ParameterLocation.Header,
                     Type = SecuritySchemeType.ApiKey,
@@ -63,19 +65,30 @@ namespace WebAPI
                 });
 
             });
-            // Adding authorization method
-            builder.Services.AddAuthentication(option => {
-                option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                option.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-                .AddJwtBearer(option =>
+
+            // Add authentication
+            builder.Services.AddAuthentication(options =>
             {
-                option.TokenValidationParameters = new TokenValidationParameters
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                var jwtKey = builder.Configuration["Jwt:Key"];
+
+                if (string.IsNullOrEmpty(jwtKey))
+                {
+                    throw new ArgumentNullException("JWT:Key", "JWT Key cannot be null or empty.");
+                }
+
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Token"]!)),
+                    //ValidAudience = builder.Configuration["Jwt:Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
                     ValidateIssuer = true,
+                    //ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true
                 };
@@ -91,8 +104,11 @@ namespace WebAPI
 
             app.UseCors(builder => builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
+            app.UseMiddleware<JwtMiddleware>(); // Authentication and Authorization purposes, consider using Authorization Policy.
+
             app.UseHttpsRedirection();
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();
