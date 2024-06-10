@@ -39,6 +39,7 @@ namespace WebAPI.Controllers
             //-----------------------------------
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
+
             if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
             {
                 return Unauthorized(new HttpErrorResponse()
@@ -48,6 +49,7 @@ namespace WebAPI.Controllers
                 });
             }
 
+            int userId = int.Parse(userIdClaim.Value);
             //-----------------------------------
 
             if (!_unitOfWork.CheckClinicAvailability(requestObject.Name, out var responseMessage))
