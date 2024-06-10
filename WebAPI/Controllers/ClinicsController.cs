@@ -51,7 +51,8 @@ namespace WebAPI.Controllers
                     OpenHour = TimeOnly.Parse(requestObject.OpenHour),
                     CloseHour = TimeOnly.Parse(requestObject.CloseHour),
                     Status = true,
-                    Owner = _unitOfWork.UserRepository.GetById(3) // Update this to get the correct Owner ID
+                    Owner = _unitOfWork.UserRepository.GetById(3)
+
                 };
 
                 // Add clinic services
@@ -83,7 +84,7 @@ namespace WebAPI.Controllers
                 return Ok(new HttpValidResponse()
                 {
                     statusCode = 202,
-                    message = "Yêu cầu tạo mới phòng khám đang được xử lí"
+                    message = "Yêu cầu tạo mới phòng khám đang được xử lí trong hệ thống"
                 });
             }
             catch (DbUpdateException dbEx)
